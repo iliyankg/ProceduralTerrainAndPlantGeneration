@@ -59,6 +59,7 @@ struct Matrix4x4
 
 //===========MATRICES==============//
 static mat4 projMat = mat4(1.0);
+mat4 translateMat = mat4(1.0);
 static mat3 normalMat = mat3(1.0);
 
 static const Matrix4x4 IDENTITY_MATRIX4x4 =
@@ -74,8 +75,8 @@ static const Matrix4x4 IDENTITY_MATRIX4x4 =
 
 
 //===============ENUMS==============//
-static enum buffer { SQUARE_VERTICES, SKY_VERTICES };
-static enum object { SQUARE, SKY };
+static enum buffer { SQUARE_VERTICES, SKY_VERTICES, CLOUD_VERTICES };
+static enum object { SQUARE, SKY, CLOUD };
 /////////////////////////////////////
 
 //==============================GLOBALS==============================//
@@ -178,9 +179,13 @@ static const Light light0 =
 // Initialization routine.
 void setup()
 {
+	//=============================ENABLES & SETUP=================================//
 	glEnable(GL_DEPTH_TEST);
-	glClearColor(1.0, 1.0, 1.0, 0.0);
+
+	glClearColor(117.0/255.0, 210.0/255.0, 223.0/255.0, 0.0);
+
 	srand(1213);
+	///////////////////////////////////////////////////////////////////////////////
 
 	vector< vector <float> > terrain(MAP_SIZE, vector<float>(MAP_SIZE,1));
 	for (int x = 0; x < MAP_SIZE; x++)
@@ -499,6 +504,8 @@ void setup()
 	glUniform4fv(glGetUniformLocation(programId, "light0.coords"), 1, &light0.coords[0]);
 
 	glUniform4fv(glGetUniformLocation(programId, "globAmb"), 1, &globAmb[0]);
+
+	glUniform1i(glGetUniformLocation(programId, "switchOn"), SQUARE);
 	///////////////////////////////////////////////////////////////////////////////////////////////////
 
 	//================================================MATRICES=========================================//
@@ -513,6 +520,8 @@ void setup()
 
 	normalMat = transpose(inverse(mat3(modelViewMat)));
 	glUniformMatrix3fv(glGetUniformLocation(programId, "normalMat"), 1, GL_FALSE, value_ptr(normalMat));
+
+	glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(translateMat));
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
@@ -530,19 +539,44 @@ void drawScene(void)
 	glUniformMatrix4fv(modelViewMatLoc, 1, GL_FALSE, value_ptr(modelViewMat));
 	//////////////////////////////////////////////////////////////////////////
 
+	//===================================================GROUND==================================//
+	glUniform1i(glGetUniformLocation(programId, "switchOn"), SQUARE);
 	glBindTexture(GL_TEXTURE_2D, texture[0]);
 	glBindVertexArray(vao[SQUARE]);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer[SQUARE_VERTICES]);
+	translateMat = mat4(1.0);
+	glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(translateMat));
 	// For each row - draw the triangle strip
 	for (int i = 0; i < MAP_SIZE - 1; i++)
 	{
 		glDrawElements(GL_TRIANGLE_STRIP, verticesPerStrip, GL_UNSIGNED_INT, terrainIndexData[i]);
 	}
+	//===================================================GROUND==================================//
 
+	//===================================================CLOUDS==================================//
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	translateMat = translate(translateMat, vec3(0.0, 1050.0, 0.0));
+	translateMat = glm::scale(translateMat, vec3(10.0, 1.0, 10.0));
+	glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(translateMat));
+	glUniform1i(glGetUniformLocation(programId, "switchOn"), CLOUD);
+	for (int i = 0; i < MAP_SIZE - 1; i++)
+	{
+		glDrawElements(GL_TRIANGLE_STRIP, verticesPerStrip, GL_UNSIGNED_INT, terrainIndexData[i]);
+	}
+	//===================================================CLOUDS==================================//
+
+	//===================================================SKY==================================//
+	glDisable(GL_BLEND);
+	translateMat = mat4(1.0);
+	translateMat = glm::scale(translateMat, vec3(10.0, 1.0, 10.0));
+	glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(translateMat));
 	glBindTexture(GL_TEXTURE_2D, texture[1]);
 	glBindVertexArray(vao[SKY]);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer[SKY_VERTICES]);
+	glUniform1i(glGetUniformLocation(programId, "switchOn"), SKY);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, skyIndexData);
+	//===================================================SKY==================================//
 
 	glFlush();
 	glutPostRedisplay();
