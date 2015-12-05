@@ -26,30 +26,12 @@ const int MAP_SIZE = 2049;
 const int SCREEN_WIDTH = 1024;
 const int SCREEN_HEIGHT = 1024;
 
-
+//=============STRUCTS================//
 struct Vertex
 {
 	float coords[4];
 	float normals[3];
 	float texcoords[2];
-};
-
-struct Matrix4x4
-{
-	float entries[16];
-};
-
-static mat4 projMat = mat4(1.0);
-static mat3 normalMat = mat3(1.0);
-
-static const Matrix4x4 IDENTITY_MATRIX4x4 =
-{
-	{
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0
-	}
 };
 
 struct Material
@@ -69,12 +51,36 @@ struct Light
 	vec4 coords;
 };
 
+struct Matrix4x4
+{
+	float entries[16];
+};
+////////////////////////////////////////
+
+//===========MATRICES==============//
+static mat4 projMat = mat4(1.0);
+static mat3 normalMat = mat3(1.0);
+
+static const Matrix4x4 IDENTITY_MATRIX4x4 =
+{
+	{
+		1.0, 0.0, 0.0, 0.0,
+		0.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0
+	}
+};
+/////////////////////////////////////
+
+
+//===============ENUMS==============//
+static enum buffer { SQUARE_VERTICES, SKY_VERTICES };
+static enum object { SQUARE, SKY };
+/////////////////////////////////////
+
+//==============================GLOBALS==============================//
 static const vec4 globAmb = vec4(0.9f, 0.9f, 0.9f, 1.0f);
 
-static enum buffer { SQUARE_VERTICES };
-static enum object { SQUARE };
-
-// Globals
 mat4 modelViewMat = mat4(1.0);
 vec3 eyePos = vec3(0.0, 0.0, 100.0);
 vec3 upVector = vec3(0.0, 1.0, 0.0);
@@ -82,58 +88,31 @@ vec3 lookPos = vec3(0.0, 0.0, 1.0);
 float cameraTheta = 0.0f;
 float cameraGama = 0.0f;
 
- Vertex terrainVertices[MAP_SIZE * MAP_SIZE] = {};
-
+Vertex terrainVertices[MAP_SIZE * MAP_SIZE] = {};
+Vertex skyVertices[8] = {};
 const int numStripsRequired = MAP_SIZE - 1;
 const int verticesPerStrip = 2 * MAP_SIZE;
 
 unsigned int terrainIndexData[numStripsRequired][verticesPerStrip];
+unsigned int skyIndexData[30] = {};
+////////////////////////////////////////////////////////////////////////
 
-static BitMapFile *image[1];
-
-//Not used
-//unsigned int newTerrainIndexData[numStripsRequired * verticesPerStrip];
+//===========================BUFFERS=======================//
 static unsigned int
 programId,
 vertexShaderId,
 fragmentShaderId,
 modelViewMatLoc,
 projMatLoc,
-buffer[1],
-vao[1],
-texture[1],
+buffer[2],
+vao[2],
+texture[2],
 grassTexLoc;
 
-void shaderCompileTest(GLuint shader)
-{
-	GLint result = GL_FALSE;
-	int logLength;
+static BitMapFile *image[2];
+//////////////////////////////////////////////////////////////
 
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
-	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-	std::vector<GLchar> vertShaderError((logLength > 1) ? logLength : 1);
-	glGetShaderInfoLog(shader, logLength, NULL, &vertShaderError[0]);
-	std::cout << &vertShaderError[0] << std::endl;
-}
-
-static const Material terrainFandB =
-{
-	vec4(1.0, 1.0, 1.0, 1.0),
-	vec4(1.0, 1.0, 1.0, 1.0),
-	vec4(1.0, 1.0, 1.0, 1.0),
-	vec4(0.0, 0.0, 0.0, 1.0),
-	50.0f
-};
-
-static const Light light0 =
-{
-	vec4(0.0, 0.0, 0.0, 1.0),
-	vec4(1.0, 1.0, 1.0, 1.0),
-	vec4(1.0, 1.0, 1.0, 1.0),
-	vec4(1.0, 1.0, 0.0, 0.0)
-};
-
-
+//=============================UTILS=======================//
 // Function to read text file, used to read shader files
 char* readTextFile(char* aTextFile)
 {
@@ -151,7 +130,17 @@ char* readTextFile(char* aTextFile)
 	return content;
 }
 
+void shaderCompileTest(GLuint shader)
+{
+	GLint result = GL_FALSE;
+	int logLength;
 
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
+	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+	std::vector<GLchar> vertShaderError((logLength > 1) ? logLength : 1);
+	glGetShaderInfoLog(shader, logLength, NULL, &vertShaderError[0]);
+	std::cout << &vertShaderError[0] << std::endl;
+}
 
 // Function to replace GluPerspective provided by NEHE
 // http://nehe.gamedev.net/article/replacement_for_gluperspective/21002/
@@ -165,16 +154,34 @@ void perspectiveGL(GLdouble fovY, GLdouble aspect, GLdouble zNear, GLdouble zFar
 
 	projMat = frustum(-fW, fW, -fH, fH, zNear, zFar);
 }
+/////////////////////////////////////////////////////////////
+
+//==============SPECIALS=======================//
+static const Material terrainFandB =
+{
+	vec4(1.0, 1.0, 1.0, 1.0),
+	vec4(1.0, 1.0, 1.0, 1.0),
+	vec4(1.0, 1.0, 1.0, 1.0),
+	vec4(0.0, 0.0, 0.0, 1.0),
+	50.0f
+};
+
+static const Light light0 =
+{
+	vec4(0.0, 0.0, 0.0, 1.0),
+	vec4(1.0, 1.0, 1.0, 1.0),
+	vec4(1.0, 1.0, 1.0, 1.0),
+	vec4(1.0, 1.0, 0.0, 0.0)
+};
+/////////////////////////////////////////////
 
 // Initialization routine.
 void setup()
 {
 	glEnable(GL_DEPTH_TEST);
-
+	glClearColor(1.0, 1.0, 1.0, 0.0);
 	srand(1213);
-	
-	// Initialise terrain - set values in the height map to 0
-	//CHANGED: FROM DEFAULT ARRAY TO VECTOR
+
 	vector< vector <float> > terrain(MAP_SIZE, vector<float>(MAP_SIZE,1));
 	for (int x = 0; x < MAP_SIZE; x++)
 	{
@@ -184,17 +191,17 @@ void setup()
 		}
 	}
 
-	// TODO: Add your code here to calculate the height values of the terrain using the Diamond square algorithm
-	ds::diamondSquareSetup(terrain);
-	
+	ds::diamondSquareSetup(terrain);	
 	ds::diamondSquare(terrain, 1024, 100);
 
 	float fTextureS = float(MAP_SIZE)*0.1f;
-	float fTextureT = float(MAP_SIZE)*0.1f;
-
+	float fTextureT = float(MAP_SIZE)*0.1f;
 	// Intialise vertex array
 	int i = 0;
 
+	//=============================PopulatesVertices=====================================//
+	
+	//===========TERRAIN============//
 	for (int z = 0; z < MAP_SIZE; ++z)
 	{
 		for (int x = 0; x < MAP_SIZE; ++x)
@@ -257,24 +264,163 @@ void setup()
 			i++;
 		}
 	}
+	//////////////////////////////////////
 
-	glClearColor(1.0, 1.0, 1.0, 0.0);
+	//===============SKY==============//
+	skyVertices[0] = 
+	{ 
+		{
+			terrainVertices[0].coords[0],
+			terrainVertices[0].coords[1] - 1000,
+			terrainVertices[0].coords[2],
+			terrainVertices[0].coords[3] 
+		},
+		{
+			1.0f, 0.0f, 0.0f,
+		},
+		{
+			terrainVertices[0].texcoords[0],
+			terrainVertices[0].texcoords[1]
+		} 
+	};
+	skyVertices[1] =
+	{
+		{
+			terrainVertices[0].coords[0],
+			terrainVertices[0].coords[1] + 1000,
+			terrainVertices[0].coords[2],
+			terrainVertices[0].coords[3]
+		},
+		{
+			1.0f, 0.0f, 0.0f,
+		},
+		{
+			terrainVertices[0].texcoords[0],
+			terrainVertices[0].texcoords[1]
+		}
+	};
+	skyVertices[2] =
+	{
+		{
+			terrainVertices[MAP_SIZE - 1].coords[0],
+			terrainVertices[MAP_SIZE - 1].coords[1] - 1000,
+			terrainVertices[MAP_SIZE - 1].coords[2],
+			terrainVertices[MAP_SIZE - 1].coords[3]
+		},
+		{
+			1.0f, 0.0f, 0.0f,
+		},
+		{
+			terrainVertices[MAP_SIZE - 1].texcoords[0],
+			terrainVertices[MAP_SIZE - 1].texcoords[1]
+		}
+	};
+	skyVertices[3] =
+	{
+		{
+			terrainVertices[MAP_SIZE - 1].coords[0],
+			terrainVertices[MAP_SIZE - 1].coords[1] + 1000,
+			terrainVertices[MAP_SIZE - 1].coords[2],
+			terrainVertices[MAP_SIZE - 1].coords[3]
+		},
+		{
+			1.0f, 0.0f, 0.0f,
+		},
+		{
+			terrainVertices[MAP_SIZE - 1].texcoords[0],
+			terrainVertices[MAP_SIZE - 1].texcoords[1]
+		}
+	};
 
-	// Create shader program executable - read, compile and link shaders
+	skyVertices[4] =
+	{
+		{
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].coords[0],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].coords[1] - 1000,
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].coords[2],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].coords[3]
+		},
+		{
+			1.0f, 0.0f, 0.0f,
+		},
+		{
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].texcoords[0],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].texcoords[1]
+		}
+	};
+	skyVertices[5] =
+	{
+		{
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].coords[0],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].coords[1] + 1000,
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].coords[2],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].coords[3]
+		},
+		{
+			1.0f, 0.0f, 0.0f,
+		},
+		{
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].texcoords[0],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].texcoords[1]
+		}
+	};
+	skyVertices[6] =
+	{
+		{
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1)].coords[0],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1)].coords[1] - 1000,
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1)].coords[2],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1)].coords[3]
+		},
+		{
+			1.0f, 0.0f, 0.0f,
+		},
+		{
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1)].texcoords[0],
+			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1)].texcoords[1]
+		}
+	};
+	skyVertices[7] =
+	{
+		{
+			terrainVertices[(MAP_SIZE) * (MAP_SIZE) - 1 ].coords[0],
+			terrainVertices[(MAP_SIZE)* (MAP_SIZE) - 1].coords[1] + 1000,
+			terrainVertices[(MAP_SIZE)* (MAP_SIZE) - 1].coords[2],
+			terrainVertices[(MAP_SIZE)* (MAP_SIZE) - 1].coords[3]
+		},
+		{
+			1.0f, 0.0f, 0.0f,
+		},
+		{
+			terrainVertices[(MAP_SIZE)* (MAP_SIZE) - 1].texcoords[0],
+			terrainVertices[(MAP_SIZE)* (MAP_SIZE) - 1].texcoords[1]
+		}
+	};
+
+	skyIndexData[0] = 1;
+	skyIndexData[1] = 3;
+	skyIndexData[2] = 5;
+	skyIndexData[3] = 3;
+	skyIndexData[4] = 5;
+	skyIndexData[5] = 7;
+	///////////////////////////////////
+
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	//===============================SHADERS======================================//
 	char* vertexShader = readTextFile("vertexShader.glsl");
-	vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShaderId, 1, (const char**)&vertexShader, NULL);
-	glCompileShader(vertexShaderId);
-
 	char* fragmentShader = readTextFile("fragmentShader.glsl");
+	vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
 	fragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(vertexShaderId, 1, (const char**)&vertexShader, NULL);
 	glShaderSource(fragmentShaderId, 1, (const char**)&fragmentShader, NULL);
+	glCompileShader(vertexShaderId);
 	glCompileShader(fragmentShaderId);
 
-	cout << "VERTEX: " << endl;
+	std::cout << "VERTEX: " << endl;
 	shaderCompileTest(vertexShaderId);
 
-	cout << "FRAGMENT: " << endl;
+	std::cout << "FRAGMENT: " << endl;
 	shaderCompileTest(fragmentShaderId);
 
 	programId = glCreateProgram();
@@ -288,23 +434,34 @@ void setup()
 	//////////////TEXTURES///////////////////
 	// Load the image.
 	image[0] = getbmp("terrain_texture.bmp");
+	image[1] = getbmp("sky.bmp");
 	// Create texture id.
-	glGenTextures(1, texture);
+	glGenTextures(2, texture);
 	// Bind grass image.
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture[0]);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image[0]->sizeX, image[0]->sizeY, 0,
-		GL_RGBA, GL_UNSIGNED_BYTE, image[0]->data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image[0]->sizeX, image[0]->sizeY, 0, GL_RGBA, GL_UNSIGNED_BYTE, image[0]->data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	grassTexLoc = glGetUniformLocation(programId, "grassTex");
-	glUniform1i(grassTexLoc, 0);
+	glUniform1i(grassTexLoc, 0);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture[1]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image[1]->sizeX, image[1]->sizeY, 0, GL_RGBA, GL_UNSIGNED_BYTE, image[1]->data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	grassTexLoc = glGetUniformLocation(programId, "grassTex");
+	glUniform1i(grassTexLoc, 0);
 	/////////////////////////////////////////
-	// Create vertex array object (VAO) and vertex buffer object (VBO) and associate data with vertex shader.
-	glGenVertexArrays(1, vao);
-	glGenBuffers(1, buffer);
+
+	//==================================VAO, VBO, IBO Setup============================//
+	glGenVertexArrays(2, vao);
+	glGenBuffers(2, buffer);
 	glBindVertexArray(vao[SQUARE]);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer[SQUARE_VERTICES]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainVertices), terrainVertices, GL_STATIC_DRAW);
@@ -313,16 +470,23 @@ void setup()
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(terrainVertices[0]), (GLvoid*)sizeof(terrainVertices[0].coords));
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(terrainVertices[0]),
-		(GLvoid*)(sizeof(terrainVertices[0].coords) + sizeof(terrainVertices[0].normals)));
-	glEnableVertexAttribArray(2);
-	///////////////////////////////////////
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(terrainVertices[0]), (GLvoid*)(sizeof(terrainVertices[0].coords) + sizeof(terrainVertices[0].normals)));
+	glEnableVertexAttribArray(2);
 
-	// Obtain projection matrix uniform location and set value.
-	projMatLoc = glGetUniformLocation(programId, "projMat");
-	perspectiveGL(60, (float)SCREEN_WIDTH/(float)SCREEN_HEIGHT, 0.1, 100);
-	glUniformMatrix4fv(projMatLoc, 1, GL_FALSE, value_ptr(projMat));
+	glBindVertexArray(vao[SKY]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[SKY_VERTICES]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyVertices), skyVertices, GL_STATIC_DRAW);
 
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(skyVertices[0]), 0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(skyVertices[0]), (GLvoid*)sizeof(skyVertices[0].coords));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(skyVertices[0]), (GLvoid*)(sizeof(skyVertices[0].coords) + sizeof(skyVertices[0].normals)));
+	glEnableVertexAttribArray(2);
+
+	/////////////////////////////////////////////////////////////////////////////////
+
+	//============================================UNIFORMS================================================//
 	glUniform4fv(glGetUniformLocation(programId, "terrainFandB.ambRefl"), 1, &terrainFandB.ambRefl[0]);
 	glUniform4fv(glGetUniformLocation(programId, "terrainFandB.difRefl"), 1, &terrainFandB.difRefl[0]);
 	glUniform4fv(glGetUniformLocation(programId, "terrainFandB.specRefl"), 1, &terrainFandB.specRefl[0]);
@@ -335,54 +499,52 @@ void setup()
 	glUniform4fv(glGetUniformLocation(programId, "light0.coords"), 1, &light0.coords[0]);
 
 	glUniform4fv(glGetUniformLocation(programId, "globAmb"), 1, &globAmb[0]);
-	///////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////////////////
 
+	//================================================MATRICES=========================================//
 	projMatLoc = glGetUniformLocation(programId, "projMat");
 	projMat = glm::perspective(1.0472, 1.0, 0.1, 200000000.0);
 	glUniformMatrix4fv(projMatLoc, 1, GL_FALSE, value_ptr(projMat));
 
 	// Obtain modelview matrix uniform location and set value.
 	modelViewMat = lookAt(eyePos, lookPos, upVector);
-	// Move terrain into view - glm::translate replaces glTranslatef
-	//modelViewMat = translate(modelViewMat, vec3(-15.5f, -20.0f, -80.0f)); // 5x5 grid
 	modelViewMatLoc = glGetUniformLocation(programId, "modelViewMat");
 	glUniformMatrix4fv(modelViewMatLoc, 1, GL_FALSE, value_ptr(modelViewMat));
 
 	normalMat = transpose(inverse(mat3(modelViewMat)));
 	glUniformMatrix3fv(glGetUniformLocation(programId, "normalMat"), 1, GL_FALSE, value_ptr(normalMat));
-	///////////////////////////////////////
-/*
-	Matrix4x4 modelViewMatTwo = IDENTITY_MATRIX4x4;
-	modelViewMatLoc = glGetUniformLocation(programId, "modelViewMat");
-	glUniformMatrix4fv(modelViewMatLoc, 1, GL_TRUE, modelViewMatTwo.entries);*/
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
 // Drawing routine.
 void drawScene(void)
 {
-
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//===============================LOOKAT=================================//
 	lookPos.x = cos(radians(cameraGama)) * sin(radians(cameraTheta));
 	lookPos.y = sin(radians(cameraGama));
 	lookPos.z = -cos(radians(cameraGama)) * cos(radians(cameraTheta));
-
 	normalize(lookPos);
-
 	modelViewMat = lookAt(eyePos, eyePos + lookPos, upVector);
-	// Move terrain into view - glm::translate replaces glTranslatef
-	//modelViewMat = translate(modelViewMat, vec3(-15.5f, -20.0f, -80.0f)); // 5x5 grid
 	modelViewMatLoc = glGetUniformLocation(programId, "modelViewMat");
 	glUniformMatrix4fv(modelViewMatLoc, 1, GL_FALSE, value_ptr(modelViewMat));
-	
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//////////////////////////////////////////////////////////////////////////
 
+	glBindTexture(GL_TEXTURE_2D, texture[0]);
+	glBindVertexArray(vao[SQUARE]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[SQUARE_VERTICES]);
 	// For each row - draw the triangle strip
 	for (int i = 0; i < MAP_SIZE - 1; i++)
 	{
 		glDrawElements(GL_TRIANGLE_STRIP, verticesPerStrip, GL_UNSIGNED_INT, terrainIndexData[i]);
 	}
 
+	glBindTexture(GL_TEXTURE_2D, texture[1]);
+	glBindVertexArray(vao[SKY]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[SKY_VERTICES]);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, skyIndexData);
+
 	glFlush();
-	//glutSwapBuffers();
 	glutPostRedisplay();
 }
 
