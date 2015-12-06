@@ -219,7 +219,6 @@ void setup()
 				temp3 = vec3(0, terrain[x][z + 1], 1);
 			}
 			
-
 			vec3 toCross1 = normalize(temp1 - temp2);
 			vec3 toCross2 = normalize(temp1 - temp3);
 
@@ -237,13 +236,22 @@ void setup()
 	{
 		int pointX = getRandRange(MAP_SIZE - 1);
 		int pointZ = getRandRange(MAP_SIZE - 1);
+
+		while (terrain[pointX][pointZ] > 10.0 || terrain[pointX][pointZ] < 0.0)
+		{
+			pointX = getRandRange(MAP_SIZE - 1);
+			pointZ = getRandRange(MAP_SIZE - 1);
+		}
+
 		treeVer[i] = getRandRange(3);
 
 
 		translateMat = mat4(1.0);
-
+		
 		treeTransformMat[i] = rotate(translateMat, radians((float)getRandRange(359)), vec3(0.0, 1.0, 0.0));
 		treeTransformMat[i] = translate(translateMat, vec3(pointX, terrain[pointX][pointZ] - 5, pointZ));
+		if (treeVer[i] == 2)
+			treeTransformMat[i] = scale(treeTransformMat[i], vec3(0.5, 0.2, 0.5));
 	}
 
 	// Now build the index data 
