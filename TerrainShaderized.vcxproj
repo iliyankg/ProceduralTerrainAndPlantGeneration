@@ -91,9 +91,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DiamondSquare.h" />
-    <ClInclude Include="FractalTree.h" />
     <ClInclude Include="getbmp.h" />
-    <ClInclude Include="Tree.h" />
+    <ClInclude Include="Structs.h" />
+    <ClInclude Include="Trees.h" />
+    <ClInclude Include="Utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

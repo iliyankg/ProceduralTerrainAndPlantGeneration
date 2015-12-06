@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <random>
+#include <time.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -13,6 +15,9 @@
 
 #include "DiamondSquare.h"
 #include "getbmp.h"
+#include "Structs.h"
+#include "Trees.h"
+#include "Utils.h"
 
 #pragma comment(lib, "glew32.lib") 
 
@@ -25,37 +30,6 @@ const int MAP_SIZE = 2049;
 
 const int SCREEN_WIDTH = 1024;
 const int SCREEN_HEIGHT = 1024;
-
-//=============STRUCTS================//
-struct Vertex
-{
-	float coords[4];
-	float normals[3];
-	float texcoords[2];
-};
-
-struct Material
-{
-	vec4 ambRefl;
-	vec4 difRefl;
-	vec4 specRefl;
-	vec4 emitCols;
-	float shininess;
-};
-
-struct Light
-{
-	vec4 ambCols;
-	vec4 difCols;
-	vec4 specCols;
-	vec4 coords;
-};
-
-struct Matrix4x4
-{
-	float entries[16];
-};
-////////////////////////////////////////
 
 //===========MATRICES==============//
 static mat4 projMat = mat4(1.0);
@@ -73,76 +47,7 @@ static const Matrix4x4 IDENTITY_MATRIX4x4 =
 };
 /////////////////////////////////////
 
-
-//===============ENUMS==============//
-static enum buffer { SQUARE_VERTICES, SKY_VERTICES, CLOUD_VERTICES };
-static enum object { SQUARE, SKY, CLOUD };
-/////////////////////////////////////
-
-//==============================GLOBALS==============================//
-static const vec4 globAmb = vec4(0.9f, 0.9f, 0.9f, 1.0f);
-
-mat4 modelViewMat = mat4(1.0);
-vec3 eyePos = vec3(0.0, 0.0, 100.0);
-vec3 upVector = vec3(0.0, 1.0, 0.0);
-vec3 lookPos = vec3(0.0, 0.0, 1.0);
-float cameraTheta = 0.0f;
-float cameraGama = 0.0f;
-
-Vertex terrainVertices[MAP_SIZE * MAP_SIZE] = {};
-Vertex skyVertices[8] = {};
-const int numStripsRequired = MAP_SIZE - 1;
-const int verticesPerStrip = 2 * MAP_SIZE;
-
-unsigned int terrainIndexData[numStripsRequired][verticesPerStrip];
-unsigned int skyIndexData[30] = {};
-////////////////////////////////////////////////////////////////////////
-
-//===========================BUFFERS=======================//
-static unsigned int
-programId,
-vertexShaderId,
-fragmentShaderId,
-modelViewMatLoc,
-projMatLoc,
-buffer[2],
-vao[2],
-texture[2],
-grassTexLoc;
-
-static BitMapFile *image[2];
-//////////////////////////////////////////////////////////////
-
-//=============================UTILS=======================//
-// Function to read text file, used to read shader files
-char* readTextFile(char* aTextFile)
-{
-	FILE* filePointer = fopen(aTextFile, "rb");
-	char* content = NULL;
-	long numVal = 0;
-
-	fseek(filePointer, 0L, SEEK_END);
-	numVal = ftell(filePointer);
-	fseek(filePointer, 0L, SEEK_SET);
-	content = (char*)malloc((numVal + 1) * sizeof(char));
-	fread(content, 1, numVal, filePointer);
-	content[numVal] = '\0';
-	fclose(filePointer);
-	return content;
-}
-
-void shaderCompileTest(GLuint shader)
-{
-	GLint result = GL_FALSE;
-	int logLength;
-
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
-	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-	std::vector<GLchar> vertShaderError((logLength > 1) ? logLength : 1);
-	glGetShaderInfoLog(shader, logLength, NULL, &vertShaderError[0]);
-	std::cout << &vertShaderError[0] << std::endl;
-}
-
+//======================UTILS=================================//
 // Function to replace GluPerspective provided by NEHE
 // http://nehe.gamedev.net/article/replacement_for_gluperspective/21002/
 void perspectiveGL(GLdouble fovY, GLdouble aspect, GLdouble zNear, GLdouble zFar)
@@ -155,7 +60,68 @@ void perspectiveGL(GLdouble fovY, GLdouble aspect, GLdouble zNear, GLdouble zFar
 
 	projMat = frustum(-fW, fW, -fH, fH, zNear, zFar);
 }
-/////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+//===============ENUMS==============//
+static enum buffer { SQUARE_VERTICES, SKY_VERTICES, CLOUD_VERTICES, TREE_VERTS, LEAF_VERTS };
+static enum object { SQUARE, SKY, CLOUD, TREE, LEAF };
+/////////////////////////////////////
+
+//==============================GLOBALS==============================//
+Tree trees[3];
+
+static const vec4 globAmb = vec4(0.9f, 0.9f, 0.9f, 1.0f);
+
+mat4 modelViewMat = mat4(1.0);
+vec3 eyePos = vec3(0.0, 0.0, 100.0);
+vec3 upVector = vec3(0.0, 1.0, 0.0);
+vec3 lookPos = vec3(0.0, 0.0, 1.0);
+float cameraTheta = 0.0f;
+float cameraGama = 0.0f;
+
+Vertex terrainVertices[MAP_SIZE * MAP_SIZE] = {};
+Vertex skyVertices[8] = {};
+
+Vertex treeVertsOne[1000] = {};
+Vertex treeLeafVertsOne[2000] = {};
+Vertex leafVertsOne[2000];
+Vertex treeVertsTwo[1000] = {};
+Vertex treeLeafVertsTwo[2000] = {};
+Vertex leafVertsTwo[2000];
+Vertex treeVertsThree[1000] = {};
+Vertex treeLeafVertsThree[2000] = {};
+Vertex leafVertsThree[2000];
+
+std::vector < Vertex > validTreeLocations;
+std::vector < Vertex > finalTreeLocations;
+int treeVer[100];
+mat4 treeTransformMat[100];
+
+const int numStripsRequired = MAP_SIZE - 1;
+const int verticesPerStrip = 2 * MAP_SIZE;
+
+unsigned int treeIndeciesOne[1000][2] = {};
+unsigned int treeIndeciesTwo[1000][2] = {};
+unsigned int treeIndeciesThree[1000][2] = {};
+unsigned int terrainIndexData[numStripsRequired][verticesPerStrip];
+unsigned int skyIndexData[6] = {};
+////////////////////////////////////////////////////////////////////////
+
+//===========================BUFFERS=======================//
+static unsigned int
+programId,
+vertexShaderId,
+fragmentShaderId,
+modelViewMatLoc,
+projMatLoc,
+buffer[8],
+vao[8],
+ibo[3],
+texture[2],
+grassTexLoc;
+
+static BitMapFile *image[2];
+//////////////////////////////////////////////////////////////
 
 //==============SPECIALS=======================//
 static const Material terrainFandB =
@@ -184,7 +150,7 @@ void setup()
 
 	glClearColor(117.0/255.0, 210.0/255.0, 223.0/255.0, 0.0);
 
-	srand(1213);
+	srand(time(NULL));
 	///////////////////////////////////////////////////////////////////////////////
 
 	vector< vector <float> > terrain(MAP_SIZE, vector<float>(MAP_SIZE,1));
@@ -196,8 +162,22 @@ void setup()
 		}
 	}
 
+	//==============================GENERATE==============================//
 	ds::diamondSquareSetup(terrain);	
 	ds::diamondSquare(terrain, 1024, 100);
+
+	trees[0] = Tree(9);
+	trees[0].makeTree(0, 2, 20.0, 0);
+	trees[0].makeLeaves(pow(2, trees[0].branchLevels - 1));
+
+	trees[1] = Tree(9);
+	trees[1].makeTree(0, 2, 20.0, 0);
+	trees[1].makeLeaves(pow(2, trees[1].branchLevels - 1));
+
+	trees[2] = Tree(9);
+	trees[2].makeTree(0, 2, 20.0, 0);
+	trees[2].makeLeaves(pow(2, trees[2].branchLevels - 1));
+	///////////////////////////////////////////////////////////////////////
 
 	float fTextureS = float(MAP_SIZE)*0.1f;
 	float fTextureT = float(MAP_SIZE)*0.1f;
@@ -248,9 +228,22 @@ void setup()
 			float fScaleC = float(x) / float(MAP_SIZE - 1);
 			float fScaleR = float(z) / float(MAP_SIZE - 1);
 
-			terrainVertices[i] = { { (float)x, terrain[x][z], (float)z, 1.0 }, { normal.x, normal.y, normal.z }, {fTextureS * fScaleC, fTextureT * fScaleR} };
+			terrainVertices[i] = { { (float)x, terrain[x][z], (float)z, 1.0 }, { normal.x, normal.y, normal.z }, {fTextureS * fScaleC, fTextureT * fScaleR}, {} };
 			i++;
 		}
+	}
+
+	for (int i = 0; i <= 100; ++i)
+	{
+		int pointX = getRandRange(MAP_SIZE - 1);
+		int pointZ = getRandRange(MAP_SIZE - 1);
+		treeVer[i] = getRandRange(3);
+
+
+		translateMat = mat4(1.0);
+
+		treeTransformMat[i] = rotate(translateMat, radians((float)getRandRange(359)), vec3(0.0, 1.0, 0.0));
+		treeTransformMat[i] = translate(translateMat, vec3(pointX, terrain[pointX][pointZ] - 5, pointZ));
 	}
 
 	// Now build the index data 
@@ -271,6 +264,55 @@ void setup()
 	}
 	//////////////////////////////////////
 
+	//==================================TREES=====================================//
+	//====================ONE======================//
+	for (int i = 0; i < trees[0].indecies.size(); ++i)
+	{
+		treeIndeciesOne[i][0] = trees[0].indecies[i][0];
+		treeIndeciesOne[i][1] = trees[0].indecies[i][1];
+	}
+	for (int i = 0; i < trees[0].treeVerts.size(); ++i)
+	{
+		treeVertsOne[i] = trees[0].treeVerts[i];
+	}
+	for (int i = 0; i < trees[0].leafVerts.size(); ++i)
+	{
+		leafVertsOne[i] = trees[0].leafVerts[i];
+	}
+	/////////////////////////////////////////////////
+	//====================TWO======================//
+	for (int i = 0; i < trees[1].indecies.size(); ++i)
+	{
+		treeIndeciesTwo[i][0] = trees[1].indecies[i][0];
+		treeIndeciesTwo[i][1] = trees[1].indecies[i][1];
+	}
+	for (int i = 0; i < trees[1].treeVerts.size(); ++i)
+	{
+		treeVertsTwo[i] = trees[1].treeVerts[i];
+	}
+	for (int i = 0; i < trees[1].leafVerts.size(); ++i)
+	{
+		leafVertsTwo[i] = trees[1].leafVerts[i];
+	}
+	/////////////////////////////////////////////////
+	//====================THREE====================//
+	for (int i = 0; i < trees[2].indecies.size(); ++i)
+	{
+		treeIndeciesThree[i][0] = trees[2].indecies[i][0];
+		treeIndeciesThree[i][1] = trees[2].indecies[i][1];
+	}
+	for (int i = 0; i < trees[0].treeVerts.size(); ++i)
+	{
+		treeVertsThree[i] = trees[2].treeVerts[i];
+	}
+	for (int i = 0; i < trees[2].leafVerts.size(); ++i)
+	{
+		leafVertsThree[i] = trees[2].leafVerts[i];
+	}
+	/////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////
+
+
 	//===============SKY==============//
 	skyVertices[0] = 
 	{ 
@@ -286,7 +328,8 @@ void setup()
 		{
 			terrainVertices[0].texcoords[0],
 			terrainVertices[0].texcoords[1]
-		} 
+		},
+		{}
 	};
 	skyVertices[1] =
 	{
@@ -303,6 +346,8 @@ void setup()
 			terrainVertices[0].texcoords[0],
 			terrainVertices[0].texcoords[1]
 		}
+		,
+		{}
 	};
 	skyVertices[2] =
 	{
@@ -318,7 +363,8 @@ void setup()
 		{
 			terrainVertices[MAP_SIZE - 1].texcoords[0],
 			terrainVertices[MAP_SIZE - 1].texcoords[1]
-		}
+		},
+		{}
 	};
 	skyVertices[3] =
 	{
@@ -334,7 +380,8 @@ void setup()
 		{
 			terrainVertices[MAP_SIZE - 1].texcoords[0],
 			terrainVertices[MAP_SIZE - 1].texcoords[1]
-		}
+		},
+		{}
 	};
 
 	skyVertices[4] =
@@ -351,7 +398,9 @@ void setup()
 		{
 			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].texcoords[0],
 			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].texcoords[1]
-		}
+		},
+		{}
+
 	};
 	skyVertices[5] =
 	{
@@ -367,7 +416,8 @@ void setup()
 		{
 			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].texcoords[0],
 			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1) - MAP_SIZE - 1].texcoords[1]
-		}
+		},
+		{}
 	};
 	skyVertices[6] =
 	{
@@ -383,7 +433,8 @@ void setup()
 		{
 			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1)].texcoords[0],
 			terrainVertices[(MAP_SIZE - 1) * (MAP_SIZE - 1)].texcoords[1]
-		}
+		},
+		{}
 	};
 	skyVertices[7] =
 	{
@@ -399,7 +450,8 @@ void setup()
 		{
 			terrainVertices[(MAP_SIZE)* (MAP_SIZE) - 1].texcoords[0],
 			terrainVertices[(MAP_SIZE)* (MAP_SIZE) - 1].texcoords[1]
-		}
+		},
+		{}
 	};
 
 	skyIndexData[0] = 1;
@@ -465,8 +517,10 @@ void setup()
 	/////////////////////////////////////////
 
 	//==================================VAO, VBO, IBO Setup============================//
-	glGenVertexArrays(2, vao);
-	glGenBuffers(2, buffer);
+	glGenVertexArrays(8, vao);
+	glGenBuffers(8, buffer);
+	glGenBuffers(3, ibo);
+
 	glBindVertexArray(vao[SQUARE]);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer[SQUARE_VERTICES]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainVertices), terrainVertices, GL_STATIC_DRAW);
@@ -477,6 +531,8 @@ void setup()
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(terrainVertices[0]), (GLvoid*)(sizeof(terrainVertices[0].coords) + sizeof(terrainVertices[0].normals)));
 	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(terrainVertices[0]), (GLvoid*)(sizeof(terrainVertices[0].coords) + sizeof(terrainVertices[0].normals) + sizeof(terrainVertices[0].texcoords)));
+	glEnableVertexAttribArray(3);
 
 	glBindVertexArray(vao[SKY]);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer[SKY_VERTICES]);
@@ -488,7 +544,92 @@ void setup()
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(skyVertices[0]), (GLvoid*)(sizeof(skyVertices[0].coords) + sizeof(skyVertices[0].normals)));
 	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(skyVertices[0]), (GLvoid*)(sizeof(skyVertices[0].coords) + sizeof(skyVertices[0].normals) + sizeof(skyVertices[0].texcoords)));
+	glEnableVertexAttribArray(3);
 
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[0]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(treeIndeciesOne), treeIndeciesOne, GL_STATIC_DRAW);
+	glBindVertexArray(vao[2]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[2]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(treeVertsOne), treeVertsOne, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), 0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)sizeof(treeVertsOne[0].coords));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)(sizeof(treeVertsOne[0].coords) + sizeof(treeVertsOne[0].normals)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)(sizeof(treeVertsOne[0].coords) + sizeof(treeVertsOne[0].normals) + sizeof(treeVertsOne[0].texcoords)));
+	glEnableVertexAttribArray(3);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[1]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(treeIndeciesTwo), treeIndeciesTwo, GL_STATIC_DRAW);
+	glBindVertexArray(vao[3]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[3]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(treeVertsTwo), treeVertsTwo, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), 0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)sizeof(treeVertsOne[0].coords));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)(sizeof(treeVertsOne[0].coords) + sizeof(treeVertsOne[0].normals)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)(sizeof(treeVertsOne[0].coords) + sizeof(treeVertsOne[0].normals) + sizeof(treeVertsOne[0].texcoords)));
+	glEnableVertexAttribArray(3);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[2]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(treeIndeciesThree), treeIndeciesThree, GL_STATIC_DRAW);
+	glBindVertexArray(vao[4]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[4]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(treeVertsThree), treeVertsThree, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), 0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)sizeof(treeVertsOne[0].coords));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)(sizeof(treeVertsOne[0].coords) + sizeof(treeVertsOne[0].normals)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(treeVertsOne[0]), (GLvoid*)(sizeof(treeVertsOne[0].coords) + sizeof(treeVertsOne[0].normals) + sizeof(treeVertsOne[0].texcoords)));
+	glEnableVertexAttribArray(3);
+
+	glBindVertexArray(vao[5]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[5]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(leafVertsOne), leafVertsOne, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), 0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)sizeof(leafVertsOne[0].coords));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)(sizeof(leafVertsOne[0].coords) + sizeof(leafVertsOne[0].normals)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)(sizeof(leafVertsOne[0].coords) + sizeof(leafVertsOne[0].normals) + sizeof(leafVertsOne[0].texcoords)));
+	glEnableVertexAttribArray(3);
+
+	glBindVertexArray(vao[6]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[6]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(leafVertsTwo), leafVertsTwo, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), 0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)sizeof(leafVertsOne[0].coords));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)(sizeof(leafVertsOne[0].coords) + sizeof(leafVertsOne[0].normals)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)(sizeof(leafVertsOne[0].coords) + sizeof(leafVertsOne[0].normals) + sizeof(leafVertsOne[0].texcoords)));
+	glEnableVertexAttribArray(3);
+
+	glBindVertexArray(vao[7]);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[7]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(leafVertsThree), leafVertsThree, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), 0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)sizeof(leafVertsOne[0].coords));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)(sizeof(leafVertsOne[0].coords) + sizeof(leafVertsOne[0].normals)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(leafVertsOne[0]), (GLvoid*)(sizeof(leafVertsOne[0].coords) + sizeof(leafVertsOne[0].normals) + sizeof(leafVertsOne[0].texcoords)));
+	glEnableVertexAttribArray(3);
 	/////////////////////////////////////////////////////////////////////////////////
 
 	//============================================UNIFORMS================================================//
@@ -544,6 +685,7 @@ void drawScene(void)
 	glBindTexture(GL_TEXTURE_2D, texture[0]);
 	glBindVertexArray(vao[SQUARE]);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer[SQUARE_VERTICES]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	translateMat = mat4(1.0);
 	glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(translateMat));
 	// For each row - draw the triangle strip
@@ -551,32 +693,57 @@ void drawScene(void)
 	{
 		glDrawElements(GL_TRIANGLE_STRIP, verticesPerStrip, GL_UNSIGNED_INT, terrainIndexData[i]);
 	}
-	//===================================================GROUND==================================//
+	/////////////////////////////////////////////////////////////////////////////////////////
 
 	//===================================================CLOUDS==================================//
+	glUniform1i(glGetUniformLocation(programId, "switchOn"), CLOUD);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	translateMat = translate(translateMat, vec3(0.0, 1050.0, 0.0));
-	translateMat = glm::scale(translateMat, vec3(10.0, 1.0, 10.0));
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	translateMat = translate(translateMat, vec3(-10000, 2000.0, -10000));
+	translateMat = glm::scale(translateMat, vec3(10.0, 10.0, 10.0));
 	glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(translateMat));
-	glUniform1i(glGetUniformLocation(programId, "switchOn"), CLOUD);
+	
 	for (int i = 0; i < MAP_SIZE - 1; i++)
 	{
 		glDrawElements(GL_TRIANGLE_STRIP, verticesPerStrip, GL_UNSIGNED_INT, terrainIndexData[i]);
 	}
-	//===================================================CLOUDS==================================//
+	/////////////////////////////////////////////////////////////////////////////////////////
 
-	//===================================================SKY==================================//
+	//==================================================TREE================================//
 	glDisable(GL_BLEND);
-	translateMat = mat4(1.0);
-	translateMat = glm::scale(translateMat, vec3(10.0, 1.0, 10.0));
-	glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(translateMat));
-	glBindTexture(GL_TEXTURE_2D, texture[1]);
-	glBindVertexArray(vao[SKY]);
-	glBindBuffer(GL_ARRAY_BUFFER, buffer[SKY_VERTICES]);
-	glUniform1i(glGetUniformLocation(programId, "switchOn"), SKY);
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, skyIndexData);
-	//===================================================SKY==================================//
+	for (int iterator = 0; iterator <= 100; ++iterator)
+	{
+		glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(treeTransformMat[iterator]));
+		
+		glUniform1i(glGetUniformLocation(programId, "switchOn"), TREE);
+		glBindVertexArray(vao[2 + treeVer[iterator]]);
+		glBindBuffer(GL_ARRAY_BUFFER, buffer[2 + treeVer[iterator]]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[treeVer[iterator]]);
+		for (int i = 0; i < trees[treeVer[iterator]].branchLevels; ++i)
+		{
+			glLineWidth(trees[treeVer[iterator]].branchLevels + 3 - i);
+			if (i == 0)
+				glDrawElements(GL_LINES, 2, GL_UNSIGNED_INT, 0);
+			else
+			{
+				int offset = 2;
+				if (i == 1)
+					offset = pow(2, i);
+				else
+					offset = offsetForBranches(2, i) + 2;
+
+				glDrawElements(GL_LINES, pow(2, i + 1), GL_UNSIGNED_INT, (void*)(offset * sizeof(GLuint)));
+			}
+		}
+
+		glUniform1i(glGetUniformLocation(programId, "switchOn"), LEAF);
+		glBindVertexArray(vao[5 + treeVer[iterator]]);
+		glBindBuffer(GL_ARRAY_BUFFER, buffer[5 + treeVer[iterator]]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glDrawArrays(GL_TRIANGLES, 0, trees[treeVer[iterator]].leafVerts.size());
+	}
+	/////////////////////////////////////////////////////////////////////////////////////////
 
 	glFlush();
 	glutPostRedisplay();
@@ -615,10 +782,10 @@ void keyInput(unsigned char key, int x, int y)
 		cameraTheta += -1.0;
 		break;
 	case 'r':
-		eyePos += upVector * 1.0f;
+		eyePos += upVector * 50.0f;
 		break;
 	case 'f':
-		eyePos += upVector * -1.0f;
+		eyePos += upVector * -50.0f;
 		break;
 	case 'z':
 		cameraGama += 1.0;
@@ -641,7 +808,7 @@ int main(int argc, char* argv[])
 	// The core profile excludes all discarded features
 	glutInitContextProfile(GLUT_CORE_PROFILE);
 	// Forward compatibility excludes features marked for deprecation ensuring compatability with future versions
-	glutInitContextFlags(GLUT_FORWARD_COMPATIBLE);
+	//glutInitContextFlags(GLUT_FORWARD_COMPATIBLE);
 
 	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA);
 	glutInitWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);

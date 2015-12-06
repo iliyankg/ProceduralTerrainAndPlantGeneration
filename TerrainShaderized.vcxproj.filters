@@ -24,23 +24,26 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="fragmentShader.glsl">
-      <Filter>Source Files</Filter>
+      <Filter>Resource Files</Filter>
     </Text>
     <Text Include="vertexShader.glsl">
-      <Filter>Source Files</Filter>
+      <Filter>Resource Files</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DiamondSquare.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FractalTree.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Tree.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="getbmp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DiamondSquare.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Structs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Trees.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
