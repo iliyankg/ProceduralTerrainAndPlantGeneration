@@ -54,21 +54,23 @@ namespace ds
 	*/
 	void diamond(vector< vector < float > > &terrain, int topLeftx, int topLefty, int fullSize, float range)
 	{
+		//Middle vertex
 		terrain[topLeftx + fullSize / 2][topLefty + fullSize / 2] = average(
-			terrain[topLeftx][topLefty],
-			terrain[topLeftx + fullSize][topLefty + fullSize],
-			terrain[topLeftx + fullSize][topLefty],
-			terrain[topLeftx][topLefty + fullSize]
+			terrain[topLeftx][topLefty],						//Top left vertex
+			terrain[topLeftx + fullSize][topLefty + fullSize],	//Bottom right vertex
+			terrain[topLeftx + fullSize][topLefty],				//Top right vertex
+			terrain[topLeftx][topLefty + fullSize]				//Bottom left vertex
 			) + getRand() * range;
 	}
 
 	void square(vector< vector < float > > &terrain, int middlex, int middley, int fullSize, float range)
 	{
+		//Middle vertex
 		terrain[middlex][middley] = average(
-			getGridValue(middlex + fullSize / 2, middley, terrain),
-			getGridValue(middlex, middley + fullSize / 2, terrain),
-			getGridValue(middlex - fullSize / 2, middley, terrain),
-			getGridValue(middlex, middley - fullSize / 2, terrain)
+			getGridValue(middlex + fullSize / 2, middley, terrain), //Left vertex
+			getGridValue(middlex, middley + fullSize / 2, terrain), //Top vertex
+			getGridValue(middlex - fullSize / 2, middley, terrain), //Right vertex
+			getGridValue(middlex, middley - fullSize / 2, terrain)	//Bottom vertex
 			) + getRand() * range;
 	}
 

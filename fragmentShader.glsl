@@ -9,6 +9,8 @@
 smooth in vec4 colorsExport;
 
 uniform sampler2D grassTex;
+uniform sampler2D rockTex;
+
 uniform int switchOn;
 
 in vec2 texCoordsExport;
@@ -19,6 +21,8 @@ out vec4 colorsOut;
 void main(void)
 {
    vec4 fieldTexColor = texture(grassTex, texCoordsExport);
+   vec4 rockTexColor = texture(rockTex, texCoordsExport);
+
    if(switchOn == _CLOUD)
    {
 	colorsOut = vec4(1.0, 1.0, 1.0, height / 150.0f);
@@ -27,9 +31,10 @@ void main(void)
    {
 	colorsOut = colorsExport;
    }
-   else
+   else if( switchOn == _SQUARE)
    {
-	 colorsOut = fieldTexColor * colorsExport * 2.0f;
+	
+	 colorsOut = fieldTexColor * colorsExport;
    }
    
 }

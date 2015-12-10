@@ -93,9 +93,9 @@ public:
 				_pushMatrix();
 				matrixStack.back() =
 					_fullMatrixStack[fullIndex] *
-					rotate(matrixStack.back(), getMinusPlusRand() * glm::radians(180.0f), vec3(0.0, 1.0, 0.0)) *
-					rotate(matrixStack.back(), glm::radians(getRand(45.0f)), vec3(0.0, 0.0, 1.0)) *
-					translate(matrixStack.back(), vec3(0.0, -oldLen * 0.8, 0.0/*getMinusPlusRand() * 10.0f*/));
+					rotate(matrixStack.back(), getMinusPlusRand() * glm::radians(180.0f), vec3(0.0, 1.0, 0.0)) *//Rotate for 3D trees
+					rotate(matrixStack.back(), glm::radians(getRand(45.0f)), vec3(0.0, 0.0, 1.0)) *				//Rotate branch to the side
+					translate(matrixStack.back(), vec3(0.0, -oldLen * 0.8, 0.0));								//Scale branch down
 
 				vec4 temp = vec4(matrixStack.back() * ZERO_ZERO);
 				treeVerts.push_back({ { temp.x, temp.y, temp.z, temp.w },{},{},{ 0.55f, 0.27f, 0.075f, 1.0 } });
@@ -111,7 +111,7 @@ public:
 					_fullMatrixStack[fullIndex] *
 					rotate(matrixStack.back(), getMinusPlusRand() * glm::radians(90.0f), vec3(0.0, 1.0, 0.0)) *
 					rotate(matrixStack.back(), glm::radians(-getRand(45.0f)), vec3(0.0, 0.0, 1.0)) *
-					translate(matrixStack.back(), vec3(0.0, -oldLen * 0.8, 0.0/*getMinusPlusRand() * 10.0f*/));
+					translate(matrixStack.back(), vec3(0.0, -oldLen * 0.8, 0.0));
 
 
 				temp = vec4(matrixStack.back() * ZERO_ZERO);

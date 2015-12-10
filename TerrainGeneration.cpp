@@ -118,7 +118,8 @@ buffer[8],
 vao[8],
 ibo[3],
 texture[2],
-grassTexLoc;
+grassTexLoc,
+rockTexLoc;
 
 static BitMapFile *image[2];
 //////////////////////////////////////////////////////////////
@@ -508,20 +509,22 @@ void setup()
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image[0]->sizeX, image[0]->sizeY, 0, GL_RGBA, GL_UNSIGNED_BYTE, image[0]->data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glGenerateMipmap(GL_TEXTURE_2D);
 	grassTexLoc = glGetUniformLocation(programId, "grassTex");
 	glUniform1i(grassTexLoc, 0);
 
-	glActiveTexture(GL_TEXTURE0);
+	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, texture[1]);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image[1]->sizeX, image[1]->sizeY, 0, GL_RGBA, GL_UNSIGNED_BYTE, image[1]->data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	grassTexLoc = glGetUniformLocation(programId, "grassTex");
-	glUniform1i(grassTexLoc, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	rockTexLoc = glGetUniformLocation(programId, "rockTex");
+	glUniform1i(rockTexLoc, 1);
 	/////////////////////////////////////////
 
 	//==================================VAO, VBO, IBO Setup============================//
@@ -690,7 +693,6 @@ void drawScene(void)
 
 	//===================================================GROUND==================================//
 	glUniform1i(glGetUniformLocation(programId, "switchOn"), SQUARE);
-	glBindTexture(GL_TEXTURE_2D, texture[0]);
 	glBindVertexArray(vao[SQUARE]);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer[SQUARE_VERTICES]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -720,11 +722,11 @@ void drawScene(void)
 
 	//==================================================TREE================================//
 	glDisable(GL_BLEND);
+	glUniform1i(glGetUniformLocation(programId, "switchOn"), TREE);
 	for (int iterator = 0; iterator <= 100; ++iterator)
 	{
 		glUniformMatrix4fv(glGetUniformLocation(programId, "translationMatrix"), 1, GL_FALSE, value_ptr(treeTransformMat[iterator]));
 		
-		glUniform1i(glGetUniformLocation(programId, "switchOn"), TREE);
 		glBindVertexArray(vao[2 + treeVer[iterator]]);
 		glBindBuffer(GL_ARRAY_BUFFER, buffer[2 + treeVer[iterator]]);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[treeVer[iterator]]);
@@ -790,10 +792,10 @@ void keyInput(unsigned char key, int x, int y)
 		cameraTheta += -1.0;
 		break;
 	case 'r':
-		eyePos += upVector * 50.0f;
+		eyePos += upVector * 1.0f;
 		break;
 	case 'f':
-		eyePos += upVector * -50.0f;
+		eyePos += upVector * -1.0f;
 		break;
 	case 'z':
 		cameraGama += 1.0;
@@ -825,6 +827,20 @@ int main(int argc, char* argv[])
 
 	// Set OpenGL to render in wireframe mode
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	cout << "CONTROLS" << endl;
+
+	cout << "Forward - W" << endl;
+	cout << "Back - S" << endl;
+	cout << "Strafe Left - A" << endl;
+	cout << "Strafe Right - D" << endl;
+	cout << "Strafe Up - R" << endl;
+	cout << "Strafe Down - F" << endl << endl;
+
+	cout << "Rotate Up - Z" << endl;
+	cout << "Rotate Down - X" << endl;
+	cout << "Rotate Left - Q" << endl;
+	cout << "Rotate Right - E" << endl;
 
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(resize);
